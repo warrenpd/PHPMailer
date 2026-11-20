@@ -8,13 +8,14 @@
  * @author    Andy Prevost
  * @copyright 2012 - 2020 Marcus Bointon
  * @copyright 2004 - 2009 Andy Prevost
- * @license   http://www.gnu.org/copyleft/lesser.html GNU Lesser General Public License
+ * @license   https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html GNU Lesser General Public License
  */
 
 namespace PHPMailer\Test\PHPMailer;
 
 use ReflectionMethod;
 use PHPMailer\Test\TestCase;
+use PHPMailer\PHPMailer\PHPMailer;
 
 /**
  * Test localized error message functionality.
@@ -67,7 +68,7 @@ final class LocalizationTest extends TestCase
      *
      * @return array
      */
-    public function dataSetLanguageSuccess()
+    public static function dataSetLanguageSuccess()
     {
         $customPath = dirname(__DIR__) . '/Fixtures/LocalizationTest/';
 
@@ -140,7 +141,7 @@ final class LocalizationTest extends TestCase
      *
      * @return array
      */
-    public function dataSetLanguageSuccessFallBackLogic()
+    public static function dataSetLanguageSuccessFallBackLogic()
     {
         $customPath = dirname(__DIR__) . '/Fixtures/LocalizationTest/';
 
@@ -227,7 +228,7 @@ final class LocalizationTest extends TestCase
      *
      * @return array
      */
-    public function dataSetLanguageFail()
+    public static function dataSetLanguageFail()
     {
         $customPath = dirname(__DIR__) . '/Fixtures/LocalizationTest/';
 
@@ -252,7 +253,7 @@ final class LocalizationTest extends TestCase
              * Note: The first two letters of this three letter language code should match an existing
              * language file for this test to test this properly.
              */
-            'Invalid language code (ISO 639-2 "hrv"): fallback to default (en)' => [
+            'Invalid language code (ISO 639-2 "hrv"): fall back to default (en)' => [
                 'phrase'   => 'Message body empty',
                 'langCode' => 'hrv',
             ],
@@ -262,7 +263,7 @@ final class LocalizationTest extends TestCase
             ],
             'Custom path: not a local/permitted path' => [
                 'langCode' => 'xx', // Unassigned lang code.
-                'langPath' => 'http://example.com/files/',
+                'langPath' => 'https://example.com/files/',
             ],
             'Custom path: path traversal' => [
                 'langCode' => 'xx', // Unassigned lang code.
@@ -305,13 +306,6 @@ final class LocalizationTest extends TestCase
             'The "empty_message" translation is not as expected'
         );
 
-        self::assertArrayHasKey('encoding', $lang, 'The "encoding" translation key was not found');
-        self::assertSame(
-            'Unknown encoding: ',
-            $lang['encoding'],
-            'The "encoding" translation is not as expected'
-        );
-
         self::assertArrayHasKey('execute', $lang, 'The "execute" translation key was not found');
         self::assertSame(
             'Could not execute: ',
@@ -324,6 +318,37 @@ final class LocalizationTest extends TestCase
             'Double quoted but not interpolated $composer',
             $lang['signing'],
             'The "signing" translation is not as expected'
+        );
+    }
+
+    /**
+     * Test that arbitrary code in a language file does not get executed.
+     */
+    public function testSetLanguageDoesNotExecuteCodeWithBackticksInLangFile()
+    {
+        $result = $this->Mail->setLanguage(
+            'yz', // Unassigned lang code.
+            dirname(__DIR__) . '/Fixtures/LocalizationTest/'
+        );
+        $lang   = $this->Mail->getTranslations();
+
+        self::assertTrue($result, 'Setting the language failed. Translations set to: ' . var_export($lang, true));
+        self::assertIsArray($lang, 'Translations is not an array');
+
+        // Verify that the fixture file was loaded.
+        self::assertArrayHasKey('extension_missing', $lang, 'The "extension_missing" translation key was not found');
+        self::assertSame(
+            'Confirming that test fixture was loaded correctly (yz).',
+            $lang['extension_missing'],
+            'The "extension_missing" translation is not as expected'
+        );
+
+        // Verify that arbitrary code in a translation file does not get processed.
+        self::assertArrayHasKey('encoding', $lang, 'The "encoding" translation key was not found');
+        self::assertSame(
+            'Unknown encoding: ',
+            $lang['encoding'],
+            'The "encoding" translation is not as expected'
         );
     }
 
@@ -395,7 +420,7 @@ final class LocalizationTest extends TestCase
      *
      * @return array
      */
-    public function dataGetTranslations()
+    public static function dataGetTranslations()
     {
         return [
             'No explicit language set' => [
@@ -419,13 +444,13 @@ final class LocalizationTest extends TestCase
     public function testLang($input, $expected, $langCode = null)
     {
         if (isset($langCode)) {
-            $this->Mail->setLanguage($langCode);
+            PHPMailer::setLanguage($langCode);
         }
 
-        $reflMethod = new ReflectionMethod($this->Mail, 'lang');
-        $reflMethod->setAccessible(true);
-        $result = $reflMethod->invoke($this->Mail, $input);
-        $reflMethod->setAccessible(false);
+        $reflMethod = new ReflectionMethod(PHPMailer::class, 'lang');
+        (\PHP_VERSION_ID < 80100) && $reflMethod->setAccessible(true);
+        $result = $reflMethod->invoke(null, $input);
+        (\PHP_VERSION_ID < 80100) && $reflMethod->setAccessible(false);
 
         self::assertSame($expected, $result);
     }
@@ -435,7 +460,7 @@ final class LocalizationTest extends TestCase
      *
      * @return array
      */
-    public function dataLang()
+    public static function dataLang()
     {
         return [
             'Key: "invalid_address", default language (en)' => [
@@ -466,11 +491,11 @@ final class LocalizationTest extends TestCase
                'expected' => 'SMTP Connect() falló. https://github.com/PHPMailer/PHPMailer/wiki/Troubleshooting',
                'langCode' => 'es',
             ],
-            'Non-existent key returns key, default language (en)' => [
+            'Nonexistent key returns key, default language (en)' => [
                'input'    => 'notasupportedkey',
                'expected' => 'notasupportedkey',
             ],
-            'Non-existent key returns key, explicit language: es' => [
+            'Nonexistent key returns key, explicit language: es' => [
                'input'    => 'notasupportedkey',
                'expected' => 'notasupportedkey',
                'langCode' => 'es',

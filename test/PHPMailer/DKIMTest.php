@@ -8,13 +8,12 @@
  * @author    Andy Prevost
  * @copyright 2012 - 2020 Marcus Bointon
  * @copyright 2004 - 2009 Andy Prevost
- * @license   http://www.gnu.org/copyleft/lesser.html GNU Lesser General Public License
+ * @license   https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html GNU Lesser General Public License
  */
 
 namespace PHPMailer\Test\PHPMailer;
 
-use Exception;
-use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\Exception;
 use PHPMailer\Test\SendTestCase;
 
 /**
@@ -48,35 +47,48 @@ final class DKIMTest extends SendTestCase
     /**
      * DKIM body canonicalization tests.
      *
-     * @link https://tools.ietf.org/html/rfc6376#section-3.4.4
+     * @link https://www.rfc-editor.org/rfc/rfc6376.html#section-3.4.4
      *
      * @covers \PHPMailer\PHPMailer\PHPMailer::DKIM_BodyC
      */
     public function testDKIMBodyCanonicalization()
     {
-        // Example from https://tools.ietf.org/html/rfc6376#section-3.4.5.
+        // Example from https://www.rfc-editor.org/rfc/rfc6376.html#section-3.4.5.
         $prebody = " C \r\nD \t E\r\n\r\n\r\n";
         $postbody = " C \r\nD \t E\r\n";
 
-        self::assertSame("\r\n", $this->Mail->DKIM_BodyC(''), 'DKIM empty body canonicalization incorrect');
+        self::assertSame(
+            "\r\n",
+            $this->Mail->DKIM_BodyC(''),
+            'DKIM empty body canonicalization incorrect (Empty body)'
+        );
         self::assertSame(
             'frcCV1k9oG9oKj3dpUqdJg1PxRT2RSN/XKdLCPjaYaY=',
             base64_encode(hash('sha256', $this->Mail->DKIM_BodyC(''), true)),
             'DKIM canonicalized empty body hash mismatch'
         );
         self::assertSame($postbody, $this->Mail->DKIM_BodyC($prebody), 'DKIM body canonicalization incorrect');
+
+        //Ensure that non-break trailing whitespace in the body is preserved
+        $prebody = " C \r\nD \t E \r\n\r\n\r\n";
+        $postbody = " C \r\nD \t E \r\n";
+        self::assertSame(
+            $postbody,
+            $this->Mail->DKIM_BodyC($prebody),
+            'DKIM body canonicalization incorrect (trailing WSP)'
+        );
     }
 
     /**
      * DKIM header canonicalization tests.
      *
-     * @link https://tools.ietf.org/html/rfc6376#section-3.4.2
+     * @link https://www.rfc-editor.org/rfc/rfc6376.html#section-3.4.2
      *
      * @covers \PHPMailer\PHPMailer\PHPMailer::DKIM_HeaderC
      */
     public function testDKIMHeaderCanonicalization()
     {
-        // Example from https://tools.ietf.org/html/rfc6376#section-3.4.5.
+        // Example from https://www.rfc-editor.org/rfc/rfc6376.html#section-3.4.5.
         $preheaders = "A: X\r\nB : Y\t\r\n\tZ  \r\n";
         $postheaders = "a:X\r\nb:Y Z\r\n";
         self::assertSame(
@@ -103,7 +115,7 @@ final class DKIMTest extends SendTestCase
     /**
      * DKIM copied header fields tests.
      *
-     * @link https://tools.ietf.org/html/rfc6376#section-3.5
+     * @link https://www.rfc-editor.org/rfc/rfc6376.html#section-3.5
      *
      * @requires extension openssl
      *
@@ -113,16 +125,11 @@ final class DKIMTest extends SendTestCase
      */
     public function testDKIMOptionalHeaderFieldsCopy()
     {
-        $pk = openssl_pkey_new(
-            [
-                'private_key_bits' => 2048,
-                'private_key_type' => OPENSSL_KEYTYPE_RSA,
-            ]
-        );
-        openssl_pkey_export_to_file($pk, self::PRIVATE_KEY_FILE);
+        $pk = $this->makeKey();
+        $this->exportKeyToFile($pk, self::PRIVATE_KEY_FILE);
         $this->Mail->DKIM_private = self::PRIVATE_KEY_FILE;
 
-        // Example from https://tools.ietf.org/html/rfc6376#section-3.5.
+        // Example from https://www.rfc-editor.org/rfc/rfc6376.html#section-3.5.
         $from = 'from@example.com';
         $to = 'to@example.com';
         $date = 'date';
@@ -157,16 +164,11 @@ final class DKIMTest extends SendTestCase
      */
     public function testDKIMExtraHeaders()
     {
-        $pk = openssl_pkey_new(
-            [
-                'private_key_bits' => 2048,
-                'private_key_type' => OPENSSL_KEYTYPE_RSA,
-            ]
-        );
-        openssl_pkey_export_to_file($pk, self::PRIVATE_KEY_FILE);
+        $pk = $this->makeKey();
+        $this->exportKeyToFile($pk, self::PRIVATE_KEY_FILE);
         $this->Mail->DKIM_private = self::PRIVATE_KEY_FILE;
 
-        // Example from https://tools.ietf.org/html/rfc6376#section-3.5.
+        // Example from https://www.rfc-editor.org/rfc/rfc6376.html#section-3.5.
         $from = 'from@example.com';
         $to = 'to@example.com';
         $date = 'date';
@@ -209,13 +211,8 @@ final class DKIMTest extends SendTestCase
 
         // Make a new key pair.
         // Note: 2048 bits is the recommended minimum key length - gmail won't accept less than 1024 bits.
-        $pk = openssl_pkey_new(
-            [
-                'private_key_bits' => 2048,
-                'private_key_type' => OPENSSL_KEYTYPE_RSA,
-            ]
-        );
-        openssl_pkey_export_to_file($pk, self::PRIVATE_KEY_FILE);
+        $pk = $this->makeKey();
+        $this->exportKeyToFile($pk, self::PRIVATE_KEY_FILE);
 
         $this->Mail->DKIM_domain = 'example.com';
         $this->Mail->DKIM_private = self::PRIVATE_KEY_FILE;
@@ -228,21 +225,6 @@ final class DKIMTest extends SendTestCase
     }
 
     /**
-     * Verify behaviour of the DKIM_Sign method when Open SSL is not available.
-     *
-     * @covers \PHPMailer\PHPMailer\PHPMailer::DKIM_Sign
-     */
-    public function testDKIMSignOpenSSLNotAvailable()
-    {
-        if (extension_loaded('openssl')) {
-            $this->markTestSkipped('Test requires OpenSSL *not* to be available');
-        }
-
-        $signature = $this->Mail->DKIM_Sign('foo');
-        self::assertSame('', $signature);
-    }
-
-    /**
      * Verify behaviour of the DKIM_Sign method when Open SSL is not available and exceptions is enabled.
      *
      * @covers \PHPMailer\PHPMailer\PHPMailer::DKIM_Sign
@@ -250,7 +232,7 @@ final class DKIMTest extends SendTestCase
     public function testDKIMSignOpenSSLNotAvailableException()
     {
         if (extension_loaded('openssl')) {
-            $this->markTestSkipped('Test requires OpenSSL *not* to be available');
+            self::markTestSkipped('Test requires OpenSSL *not* to be available');
         }
 
         $this->expectException(Exception::class);

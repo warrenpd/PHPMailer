@@ -8,7 +8,7 @@
  * @author    Andy Prevost
  * @copyright 2012 - 2020 Marcus Bointon
  * @copyright 2004 - 2009 Andy Prevost
- * @license   http://www.gnu.org/copyleft/lesser.html GNU Lesser General Public License
+ * @license   https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html GNU Lesser General Public License
  */
 
 namespace PHPMailer\Test\PHPMailer;
@@ -47,7 +47,7 @@ final class Html2TextTest extends TestCase
      *
      * @return array
      */
-    public function dataHtml2Text()
+    public static function dataHtml2Text()
     {
         return [
             'Plain text, no encoded entities, surrounded by whitespace' => [
@@ -87,21 +87,21 @@ material is wood',
     <body>
         <h1>PHPMailer does HTML!</h1>
         <p>This is a <strong>test message</strong> written in HTML.<br>
-        Go to <a href="http://code.google.com/a/apache-extras.org/p/phpmailer/">
-        http://code.google.com/a/apache-extras.org/p/phpmailer/</a>
+        Go to <a href="https://github.com/PHPMailer/PHPMailer">
+        https://github.com/PHPMailer/PHPMailer</a>
         for new versions of PHPMailer.</p>
         <p>Thank you!</p>
     </body>
 </html>
 EOT
                 ,
-                // Note: be careful when updating & saving this file. The the trailing space on
+                // Note: be careful when updating & saving this file. The trailing space on
                 // the line with "Go to " needs to be preserved!
                 'expected' => <<<EOT
 PHPMailer does HTML!
         This is a test message written in HTML.
         Go to 
-        http://code.google.com/a/apache-extras.org/p/phpmailer/
+        https://github.com/PHPMailer/PHPMailer
         for new versions of PHPMailer.
         Thank you!
 EOT
@@ -132,14 +132,14 @@ EOT
             'HTML with a "less than" sign in the text' => [
                 'input'    => '<p><span style="color: #ff0000; background-color: #000000;">Complex</span> '
                     . '<span style="font-family: impact,chicago;">text <50% </span> '
-                    . '<a href="http://exempledomain.com/"><em>with</em></a> '
+                    . '<a href="https://example.com/"><em>with</em></a> '
                     . '<span style="font-size: 36pt;"><strong>tags</strong></span></p>',
                 'expected' => 'Complex text',
             ],
             'HTML with an encoded "less than" sign in the text' => [
                 'input'    => '<p><span style="color: #ff0000; background-color: #000000;">Complex</span> '
                     . '<span style="font-family: impact,chicago;">text &lt;50% </span> '
-                    . '<a href="http://exempledomain.com/"><em>with</em></a> '
+                    . '<a href="https://example.com/"><em>with</em></a> '
                     . '<span style="font-size: 36pt;"><strong>tags</strong></span></p>',
                 'expected' => 'Complex text <50%  with tags',
             ],
@@ -172,8 +172,10 @@ EOT
      *
      * @return array
      */
-    public function dataHtml2TextAdvanced()
+    public static function dataHtml2TextAdvanced()
     {
+        $obj = new HasCallback();
+
         return [
             'No HTML, simple (unsafe) function name callback' => [
                 'input'    => 'Lorem ipsum dolor sit amet, consectetur adipiscing elit.',
@@ -191,13 +193,13 @@ EOT
             'Has HTML, simple (unsafe) static class method callback' => [
                 'input'    => 'Lorem <div>ipsum</div> dolor sit amet<br/>,'
                     . ' consectetur <script>adipiscing()</script> elit.',
-                'callback' => [__CLASS__, 'methodBasedCallback'],
+                'callback' => [HasCallback::class, 'methodBasedCallback'],
                 'expected' => 'Lorem ipsum dolor sit amet, consectetur adipiscing() elit.',
             ],
             'Has HTML, simple (unsafe) object method callback' => [
                 'input'    => 'Lorem <div>ipsum</div> dolor sit amet<br/>,'
                     . ' consectetur <script>adipiscing()</script> elit.',
-                'callback' => [$this, 'methodBasedCallback'],
+                'callback' => [$obj, 'methodBasedCallback'],
                 'expected' => 'Lorem ipsum dolor sit amet, consectetur adipiscing() elit.',
             ],
             'Has HTML, explicitly use internal converter (callback = true)' => [
@@ -220,7 +222,10 @@ EOT
             ],
         ];
     }
+}
 
+final class HasCallback
+{
     /**
      * Simplistic callback function.
      */

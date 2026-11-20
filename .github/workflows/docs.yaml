@@ -3,20 +3,25 @@ on:
   push:
     branches:
       - master
+permissions: {}
 jobs:
   build_and_publish:
+    permissions:
+      contents: write # to push changes in repo (jamesives/github-pages-deploy-action)
+
     name: Build and publish Docs
     runs-on: ubuntu-latest
     if: github.repository == 'PHPMailer/PHPMailer'
     steps:
       - name: Checkout sources
-        uses: actions/checkout@v3
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 1
+          persist-credentials: false
       - name: Build Docs
         uses: ./.github/actions/build-docs
       - name: Publish Docs to gh-pages
-        uses: JamesIves/github-pages-deploy-action@v4.3.4
+        uses: JamesIves/github-pages-deploy-action@fa24774553152dd7873cd16ebd8d959b010c5445 # v4.9.0
         with:
           branch: gh-pages
           folder: docs

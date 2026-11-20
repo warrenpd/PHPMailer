@@ -8,7 +8,7 @@
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
-error_reporting(E_STRICT | E_ALL);
+error_reporting(E_ALL);
 
 date_default_timezone_set('Etc/UTC');
 
@@ -28,7 +28,10 @@ $mail->Username = 'yourname@example.com';
 $mail->Password = 'yourpassword';
 $mail->setFrom('list@example.com', 'List manager');
 $mail->addReplyTo('list@example.com', 'List manager');
-
+$mail->addCustomHeader(
+    'List-Unsubscribe',
+    '<mailto:unsubscribes@example.com>, <https://www.example.com/unsubscribe.php>'
+);
 $mail->Subject = 'PHPMailer Simple database mailing list test';
 
 //Same body for all messages, so set this before the sending loop
@@ -48,18 +51,29 @@ foreach ($result as $row) {
     try {
         $mail->addAddress($row['email'], $row['full_name']);
     } catch (Exception $e) {
-        echo 'Invalid address skipped: ' . htmlspecialchars($row['email']) . '<br>';
+        printf(
+            'Invalid address skipped: %s<br>',
+            htmlspecialchars($row['email'], ENT_QUOTES | ENT_SUBSTITUTE | ENT_HTML401)
+        );
         continue;
     }
     if (!empty($row['photo'])) {
         //Assumes the image data is stored in the DB
         $mail->addStringAttachment($row['photo'], 'YourPhoto.jpg');
     }
+    $mail->replaceCustomHeader(
+        'List-Unsubscribe',
+        '<mailto:unsubscribes@example.com>, <https://www.example.com/unsubscribe.php?email=' .
+        rawurlencode($row['email']) . '>'
+    );
 
     try {
         $mail->send();
-        echo 'Message sent to :' . htmlspecialchars($row['full_name']) . ' (' .
-            htmlspecialchars($row['email']) . ')<br>';
+        printf(
+            'Message sent to : %s (%s)<br>',
+            htmlspecialchars($row['full_name'], ENT_QUOTES | ENT_SUBSTITUTE | ENT_HTML401),
+            htmlspecialchars($row['email'], ENT_QUOTES | ENT_SUBSTITUTE | ENT_HTML401)
+        );
         //Mark it as sent in the DB
         mysqli_query(
             $mysql,
@@ -67,7 +81,11 @@ foreach ($result as $row) {
             mysqli_real_escape_string($mysql, $row['email']) . "'"
         );
     } catch (Exception $e) {
-        echo 'Mailer Error (' . htmlspecialchars($row['email']) . ') ' . $mail->ErrorInfo . '<br>';
+        printf(
+            'Mailer Error (%s) %s<br>',
+            htmlspecialchars($row['email'], ENT_QUOTES | ENT_SUBSTITUTE | ENT_HTML401),
+            $mail->ErrorInfo
+        );
         //Reset the connection to abort sending this message
         //The loop will continue trying to send to the rest of the list
         $mail->getSMTPInstance()->reset();

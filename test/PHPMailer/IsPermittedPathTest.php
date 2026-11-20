@@ -8,7 +8,7 @@
  * @author    Andy Prevost
  * @copyright 2012 - 2020 Marcus Bointon
  * @copyright 2004 - 2009 Andy Prevost
- * @license   http://www.gnu.org/copyleft/lesser.html GNU Lesser General Public License
+ * @license   https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html GNU Lesser General Public License
  */
 
 namespace PHPMailer\Test\PHPMailer;
@@ -35,9 +35,9 @@ final class IsPermittedPathTest extends TestCase
     public function testIsPermittedPath($input, $expected)
     {
         $reflMethod = new ReflectionMethod(PHPMailer::class, 'isPermittedPath');
-        $reflMethod->setAccessible(true);
+        (\PHP_VERSION_ID < 80100) && $reflMethod->setAccessible(true);
         $result = $reflMethod->invoke(null, $input);
-        $reflMethod->setAccessible(false);
+        (\PHP_VERSION_ID < 80100) && $reflMethod->setAccessible(false);
 
         self::assertSame($expected, $result);
     }
@@ -47,7 +47,7 @@ final class IsPermittedPathTest extends TestCase
      *
      * @return array
      */
-    public function dataIsPermittedPath()
+    public static function dataIsPermittedPath()
     {
         return [
             'Valid: full, local path; Linux style, forward slashes' => [

@@ -8,7 +8,7 @@
  * @author    Andy Prevost
  * @copyright 2012 - 2020 Marcus Bointon
  * @copyright 2004 - 2009 Andy Prevost
- * @license   http://www.gnu.org/copyleft/lesser.html GNU Lesser General Public License
+ * @license   https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html GNU Lesser General Public License
  */
 
 namespace PHPMailer\Test\OAuth;
@@ -36,7 +36,7 @@ final class OAuthTest extends TestCase
         $PHPMailer = new PHPMailer(true);
         $reflection = new \ReflectionClass($PHPMailer);
         $property = $reflection->getProperty('oauth');
-        $property->setAccessible(true);
+        (\PHP_VERSION_ID < 80100) && $property->setAccessible(true);
         $property->setValue($PHPMailer, true);
         self::assertTrue($PHPMailer->getOAuth(), 'Initial value of oauth property is not true');
 
@@ -56,13 +56,13 @@ final class OAuthTest extends TestCase
         self::assertInstanceOf(
             OAuth::class,
             $PHPMailer->getOAuth(),
-            'Setting Oauth property to an instance of the OAuth class failed'
+            'Setting OAuth property to an instance of the OAuth class failed'
         );
         $PHPMailer->setOAuth(new DummyOAuthProvider());
         self::assertInstanceOf(
             OAuthTokenProvider::class,
             $PHPMailer->getOAuth(),
-            'Setting Oauth property to an instance of the OAuth class failed (2)'
+            'Setting OAuth property to an instance of the OAuth class failed (2)'
         );
     }
 }

@@ -6,148 +6,223 @@ on:
   # Allow manually triggering the workflow.
   workflow_dispatch:
 
+permissions: {}
+
 jobs:
 
   coding-standard:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     name: Coding standards
+
+    permissions:
+      contents: read # to fetch code (actions/checkout)
 
     steps:
       - name: Check out code
-        uses: actions/checkout@v3
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up PHP
-        uses: shivammathur/setup-php@v2
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
         with:
-          php-version: '8.1'
+          php-version: 'latest'
           coverage: none
           tools: cs2pr
+        env:
+          fail-fast: true
 
       # Install dependencies and handle caching in one go.
-      # @link https://github.com/marketplace/actions/install-composer-dependencies
+      # @link https://github.com/marketplace/actions/install-php-dependencies-with-composer
       - name: Install Composer dependencies
-        uses: "ramsey/composer-install@v2"
+        uses: "ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda" # 4.0.0
+        with:
+          # Bust the cache at least once a month - output format: YYYY-MM.
+          custom-cache-suffix: $(date -u "+%Y-%m")
 
       - name: Check coding standards
-        continue-on-error: true
+        id: phpcs
         run: ./vendor/bin/phpcs -s --report-full --report-checkstyle=./phpcs-report.xml
 
       - name: Show PHPCS results in PR
+        if: ${{ always() && steps.phpcs.outcome == 'failure' }}
         run: cs2pr ./phpcs-report.xml
 
   lint:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     strategy:
       matrix:
-        php: ['5.5', '7.2', '8.0', '8.1']
+        php: ['5.5', '7.2', '8.0', '8.6']
         experimental: [false]
         include:
-          - php: '8.2'
+          - php: 'nightly'
             experimental: true
 
     name: "Lint: PHP ${{ matrix.php }}"
     continue-on-error: ${{ matrix.experimental }}
 
+    permissions:
+      contents: read # to fetch code (actions/checkout)
+
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Install PHP
-        uses: shivammathur/setup-php@v2
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
         with:
           php-version: ${{ matrix.php }}
+          ini-values: error_reporting=-1, display_errors=On, display_startup_errors=On
           coverage: none
           tools: cs2pr
+        env:
+          fail-fast: true
 
       # Install dependencies and handle caching in one go.
-      # @link https://github.com/marketplace/actions/install-composer-dependencies
+      # @link https://github.com/marketplace/actions/install-php-dependencies-with-composer
       - name: Install Composer dependencies
-        uses: "ramsey/composer-install@v2"
+        uses: "ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda" # 4.0.0
+        with:
+          # Bust the cache at least once a month - output format: YYYY-MM.
+          custom-cache-suffix: $(date -u "+%Y-%m")
 
       - name: Lint against parse errors
-        if: ${{ matrix.php != '8.2' }}
+        if: ${{ matrix.php != 'nightly' }}
         run: composer lint -- --checkstyle | cs2pr
 
-      - name: Lint against future parse errors (PHP 8.2)
-        if: ${{ matrix.php == '8.2' }}
+      - name: Lint against future parse errors (PHP nightly)
+        if: ${{ matrix.php == 'nightly' }}
         run: composer lint
 
   test:
     needs: ['coding-standard', 'lint']
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     strategy:
       matrix:
-        php: ['5.6', '7.0', '7.1', '7.2', '7.3', '7.4', '8.0']
+        php: ['5.6', '7.0', '7.1', '7.2', '7.3', '7.4', '8.0', '8.1', '8.2', '8.3', '8.4', '8.5']
+        extensions: ['optimal', 'minimal']
         coverage: [false]
         experimental: [false]
         include:
           # Run code coverage on high/low PHP.
           - php: '5.5'
+            extensions: 'optimal'
             coverage: true
             experimental: false
-          - php: '8.1'
+          - php: '5.5'
+            extensions: 'minimal'
+            coverage: true
+            experimental: false
+          - php: '8.6'
+            extensions: 'optimal'
+            coverage: true
+            experimental: false
+          - php: '8.6'
+            extensions: 'minimal'
             coverage: true
             experimental: false
 
           # Experimental builds. These are allowed to fail.
-          - php: '8.2'
+          - php: '8.7'
+            extensions: 'optimal'
+            coverage: false
+            experimental: true
+          - php: '8.7'
+            extensions: 'minimal'
             coverage: false
             experimental: true
 
-    name: "Test: PHP ${{ matrix.php }}"
+    name: "Test: PHP ${{ matrix.php }} - ${{ matrix.extensions }}"
 
     continue-on-error: ${{ matrix.experimental }}
 
+    permissions:
+      contents: read # to fetch code (actions/checkout)
+
     steps:
       - name: Check out code
-        uses: actions/checkout@v3
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
-      - name: Set coverage variable
-        id: set_cov
+        # About the "extensions":
+        #
+        # In a "normal" test run, the "default" extension set for a PHP version is used
+        # and it is ensured that certain extensions will be available, no matter what.
+        #
+        # For the "minimal" test run, all extensions are disabled and then only
+        # a limited set of minimally required extensions are re-enabled.
+        # The minimal set is based on the required extensions from PHPUnit + PHPMailer combined
+        # + Curl for Composer.
+        # Whether Xdebug will be enabled depends on the code coverage settings.
+        #
+        # Also see:
+        # https://github.com/shivammathur/setup-php/?tab=readme-ov-file#heavy_plus_sign-php-extension-support
+        # https://github.com/shivammathur/setup-php/wiki
+      - name: Determine extensions to use
+        id: set_extensions
         run: |
-          if [ ${{ matrix.coverage }} == "true" ]; then
-            echo '::set-output name=COV::xdebug'
+          if [[ "${{ matrix.extensions }}" == "optimal" ]]; then
+            # Optimal.
+            echo 'EXT=imap, mbstring, openssl, intl, ctype, filter, hash' >> $GITHUB_OUTPUT
+            echo 'COMPOSER_OPTIONS=' >> $GITHUB_OUTPUT
           else
-            echo '::set-output name=COV::none'
+            # Minimal.
+            echo 'EXT=none, curl, dom, json, libxml, mbstring, tokenizer, xml, xmlwriter, ctype, filter, hash' >> $GITHUB_OUTPUT
+            echo 'COMPOSER_OPTIONS=--ignore-platform-req=ext-simplexml' >> $GITHUB_OUTPUT
           fi
 
       - name: Set up PHP
-        uses: shivammathur/setup-php@v2
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
         with:
           php-version: ${{ matrix.php }}
-          coverage: ${{ steps.set_cov.outputs.COV }}
-          ini-values: sendmail_path=/usr/sbin/sendmail -t -i, error_reporting=E_ALL, display_errors=On
-          extensions: imap, mbstring, intl, ctype, filter, hash
+          coverage: ${{ matrix.coverage && 'xdebug' || 'none' }}
+          ini-values: sendmail_path=/usr/sbin/sendmail -t -i, error_reporting=-1, display_errors=On, display_startup_errors=On
+          extensions: ${{ steps.set_extensions.outputs.EXT }}
+        env:
+          fail-fast: true
 
       # Install dependencies and handle caching in one go.
-      # @link https://github.com/marketplace/actions/install-composer-dependencies
+      # @link https://github.com/marketplace/actions/install-php-dependencies-with-composer
       - name: Install PHP packages - normal
-        if: ${{ matrix.php != '8.2' }}
-        uses: "ramsey/composer-install@v2"
+        if: ${{ matrix.php != '8.7' }}
+        uses: "ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda" # 4.0.0
+        with:
+          composer-options: ${{ steps.set_extensions.outputs.COMPOSER_OPTIONS }}
+          # Bust the cache at least once a month - output format: YYYY-MM.
+          custom-cache-suffix: $(date -u "+%Y-%m")
 
       - name: Install PHP packages - ignore-platform-reqs
-        if: ${{ matrix.php == '8.2' }}
-        uses: "ramsey/composer-install@v2"
+        if: ${{ matrix.php == '8.7' }}
+        uses: "ramsey/composer-install@65e4f84970763564f46a70b8a54b90d033b3bdda" # 4.0.0
         with:
-          composer-options: --ignore-platform-reqs
+          composer-options: --ignore-platform-reqs ${{ steps.set_extensions.outputs.COMPOSER_OPTIONS }}
+          # Bust the cache at least once a month - output format: YYYY-MM.
+          custom-cache-suffix: $(date -u "+%Y-%m")
 
-      # Install postfix and automatically retry if the install failed, which happens reguarly.
-      # @link https://github.com/marketplace/actions/retry-step
-      - name: Install postfix
-        uses: nick-invision/retry@v2
-        with:
-          timeout_minutes: 2
-          max_attempts: 3
-          retry_wait_seconds: 5
-          command: |
-            sudo apt-get install -y -qq postfix qmail
-            sudo service postfix stop
+      # Set up badsmtp, the fake SMTP server used by the test suite.
+      # @link https://badsmtp.com
+      # badsmtp discards messages by default; on PHP 8.5 they are retained
+      # in Maildir format under build/badsmtp-mailbox and uploaded as an
+      # artefact for inspection.
+      - name: Set up badsmtp
+        run: |
+          if [ "${{ matrix.php }}" = "8.5" ]; then
+            export BADSMTP_MAILBOX_DIR=build/badsmtp-mailbox
+          fi
+          test/badsmtp.sh start
 
       - name: Set up sendmail
         run: |
-          smtp-sink -d "%d.%H.%M.%S" localhost:2500 1000 &
           mkdir -p build/logs
           sudo cp test/testbootstrap-dist.php test/testbootstrap.php
+          # PHP 5.5's OpenSSL only supports TLS 1.0, which badsmtp's main port
+          # rejects; use its dedicated legacy-STARTTLS port instead.
+          if [ "${{ matrix.php }}" = "5.5" ]; then
+            echo '$_REQUEST["mail_port"] = 25590;' | sudo tee -a test/testbootstrap.php
+          fi
           sudo chmod +x test/fakesendmail.sh
           sudo mkdir -p /var/qmail/bin
           sudo cp test/fakesendmail.sh /var/qmail/bin/sendmail
@@ -162,9 +237,27 @@ jobs:
         run: vendor/bin/phpunit
 
       - name: Send coverage report to Codecov
-        if: ${{ success() && matrix.coverage == true }}
-        uses: codecov/codecov-action@v3
+        if: ${{ success() && matrix.coverage == true && github.event.repository.fork == false }}
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         with:
           files: ./build/logs/clover.xml
           fail_ci_if_error: true
           verbose: true
+
+      # Retain all messages sent during the test run as a Maildir artifact
+      # for later inspection. badsmtp stores messages in Maildir format
+      # (new/, cur/, tmp/) under the mailbox directory set at startup.
+      - name: Upload sent messages as artefacts
+        if: ${{ always() && matrix.php == '8.5' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: sent-messages-${{ matrix.extensions }}
+          path: build/badsmtp-mailbox/
+          if-no-files-found: warn
+          retention-days: 5
+
+      - name: Stop badsmtp
+        if: ${{ always() }}
+        run: test/badsmtp.sh stop

@@ -8,7 +8,7 @@
  * @author    Andy Prevost
  * @copyright 2012 - 2020 Marcus Bointon
  * @copyright 2004 - 2009 Andy Prevost
- * @license   http://www.gnu.org/copyleft/lesser.html GNU Lesser General Public License
+ * @license   https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html GNU Lesser General Public License
  */
 
 namespace PHPMailer\Test\PHPMailer;
@@ -49,7 +49,7 @@ final class GenerateIdTest extends PreSendTestCase
         self::assertSame(
             1,
             preg_match(
-                '`Content-Type: multipart/alternative;\s+boundary="(b[1-3]_[A-Za-z0-9]{32,})"`',
+                '`Content-Type: multipart/alternative;\s+boundary="(b[1-3]=_[A-Za-z0-9]{32,})"`',
                 $message,
                 $matches
             ),
@@ -63,5 +63,13 @@ final class GenerateIdTest extends PreSendTestCase
             $message,
             'No boundaries using the generated ID found in message'
         );
+    }
+
+    public function testBoundaries()
+    {
+        $boundaries = $this->Mail->getBoundaries();
+        self::assertMatchesRegularExpression('/b[1-3]=_[A-Za-z0-9]{32,}/', $boundaries[1]);
+        self::assertMatchesRegularExpression('/b[1-3]=_[A-Za-z0-9]{32,}/', $boundaries[2]);
+        self::assertMatchesRegularExpression('/b[1-3]=_[A-Za-z0-9]{32,}/', $boundaries[3]);
     }
 }

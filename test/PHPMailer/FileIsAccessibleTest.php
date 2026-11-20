@@ -8,7 +8,7 @@
  * @author    Andy Prevost
  * @copyright 2012 - 2020 Marcus Bointon
  * @copyright 2004 - 2009 Andy Prevost
- * @license   http://www.gnu.org/copyleft/lesser.html GNU Lesser General Public License
+ * @license   https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html GNU Lesser General Public License
  */
 
 namespace PHPMailer\Test\PHPMailer;
@@ -39,9 +39,9 @@ final class FileIsAccessibleTest extends TestCase
     public function testFileIsAccessible($input, $expected)
     {
         $reflMethod = new ReflectionMethod(PHPMailer::class, 'fileIsAccessible');
-        $reflMethod->setAccessible(true);
+        (\PHP_VERSION_ID < 80100) && $reflMethod->setAccessible(true);
         $result = $reflMethod->invoke(null, $input);
-        $reflMethod->setAccessible(false);
+        (\PHP_VERSION_ID < 80100) && $reflMethod->setAccessible(false);
 
         self::assertSame($expected, $result);
     }
@@ -51,7 +51,7 @@ final class FileIsAccessibleTest extends TestCase
      *
      * @return array
      */
-    public function dataFileIsAccessible()
+    public static function dataFileIsAccessible()
     {
         $fixturesPath = dirname(__DIR__) . '/Fixtures/FileIsAccessibleTest/';
 
@@ -83,7 +83,7 @@ final class FileIsAccessibleTest extends TestCase
     {
         if (\DIRECTORY_SEPARATOR === '\\') {
             // Windows does not respect chmod permissions.
-            $this->markTestSkipped('This test requires a non-Windows OS.');
+            self::markTestSkipped('This test requires a non-Windows OS.');
         }
 
         $path = dirname(__DIR__) . '/Fixtures/FileIsAccessibleTest/';
@@ -91,9 +91,9 @@ final class FileIsAccessibleTest extends TestCase
         chmod($file, octdec('0'));
 
         $reflMethod = new ReflectionMethod(PHPMailer::class, 'fileIsAccessible');
-        $reflMethod->setAccessible(true);
+        (\PHP_VERSION_ID < 80100) && $reflMethod->setAccessible(true);
         $result = $reflMethod->invoke(null, $file);
-        $reflMethod->setAccessible(false);
+        (\PHP_VERSION_ID < 80100) && $reflMethod->setAccessible(false);
 
         // Reset to the default for git files before running assertions.
         chmod($file, octdec('644'));

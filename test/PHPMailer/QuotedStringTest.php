@@ -8,7 +8,7 @@
  * @author    Andy Prevost
  * @copyright 2012 - 2020 Marcus Bointon
  * @copyright 2004 - 2009 Andy Prevost
- * @license   http://www.gnu.org/copyleft/lesser.html GNU Lesser General Public License
+ * @license   https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html GNU Lesser General Public License
  */
 
 namespace PHPMailer\Test\PHPMailer;
@@ -29,7 +29,7 @@ final class QuotedStringTest extends TestCase
      * @dataProvider dataQuotedString
      *
      * @param string $input     Input text string.
-     * @param string $expected  Expected funtion output.
+     * @param string $expected  Expected function output.
      */
     public function testQuotedString($input, $expected)
     {
@@ -42,7 +42,7 @@ final class QuotedStringTest extends TestCase
      *
      * @return array
      */
-    public function dataQuotedString()
+    public static function dataQuotedString()
     {
         return [
             'No special chars' => [

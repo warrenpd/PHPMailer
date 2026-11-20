@@ -8,7 +8,7 @@
  * @author    Andy Prevost
  * @copyright 2012 - 2020 Marcus Bointon
  * @copyright 2004 - 2009 Andy Prevost
- * @license   http://www.gnu.org/copyleft/lesser.html GNU Lesser General Public License
+ * @license   https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html GNU Lesser General Public License
  */
 
 namespace PHPMailer\Test\PHPMailer;
@@ -253,7 +253,7 @@ EOT;
         $PHPMailer = new PHPMailer();
         $reflection = new \ReflectionClass($PHPMailer);
         $property = $reflection->getProperty('message_type');
-        $property->setAccessible(true);
+        (\PHP_VERSION_ID < 80100) && $property->setAccessible(true);
         $property->setValue($PHPMailer, 'inline');
         self::assertIsString($PHPMailer->createBody());
 
@@ -278,6 +278,8 @@ EOT;
 
     /**
      * Send a message containing ISO-8859-1 text.
+     *
+     * @requires extension mbstring
      */
     public function testHtmlIso8859()
     {
@@ -472,7 +474,7 @@ EOT;
         //Make sure phar paths are rejected
         self::assertFalse($this->Mail->addAttachment('phar://pharfile.php', 'pharfile.php'));
         //Make sure any path that looks URLish is rejected
-        self::assertFalse($this->Mail->addAttachment('http://example.com/test.php', 'test.php'));
+        self::assertFalse($this->Mail->addAttachment('https://example.com/test.php', 'test.php'));
         self::assertFalse(
             $this->Mail->addAttachment(
                 'ssh2.sftp://user:pass@attacker-controlled.example.com:22/tmp/payload.phar',
@@ -595,6 +597,7 @@ EOT;
      */
     public function testEmbeddedImage()
     {
+        $this->Mail->From = '';
         $this->Mail->msgHTML('<!DOCTYPE html>
 <html lang="en">
   <head>
@@ -608,6 +611,32 @@ EOT;
         $this->Mail->preSend();
         self::assertStringContainsString(
             'Content-ID: <bb229a48bee31f5d54ca12dc9bd960c6@phpmailer.0>',
+            $this->Mail->getSentMIMEMessage(),
+            'Embedded image header encoding incorrect.'
+        );
+    }
+
+    /**
+     * An embedded attachment test with custom cid domain.
+     */
+    public function testEmbeddedImageCustomCidDomain()
+    {
+        $result = $this->Mail->setFrom('test@example.com');
+        self::assertTrue($result, 'setFrom failed');
+
+        $this->Mail->msgHTML('<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>E-Mail Inline Image Test</title>
+  </head>
+  <body>
+    <p><img src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="></p>
+  </body>
+</html>', '', false);
+        $this->Mail->preSend();
+        self::assertStringContainsString(
+            'Content-ID: <bb229a48bee31f5d54ca12dc9bd960c6@example.com>',
             $this->Mail->getSentMIMEMessage(),
             'Embedded image header encoding incorrect.'
         );
@@ -681,7 +710,7 @@ EOT;
             return;
         }
 
-        //Test using non-existent UNC path
+        //Test using nonexistent UNC path
         self::assertFalse($this->Mail->addAttachment('\\\\nowhere\\nothing'));
 
         $this->buildBody();
@@ -805,8 +834,7 @@ EOT;
         $this->buildBody();
         $this->Mail->preSend();
         self::assertMatchesRegularExpression(
-            "/Content-Transfer-Encoding: 8bit\r\n\r\n" .
-            'This is a multi-part message in MIME format./',
+            "/Content-Transfer-Encoding: 8bit\r\n\r\n/",
             $this->Mail->getSentMIMEMessage(),
             'MIME structure broken'
         );
@@ -838,6 +866,20 @@ EOT;
         $mail = new PHPMailer(true);
         $mail->addAttachment(__FILE__, 'test.txt', 'invalidencoding');
     }
+
+    /**
+     * Expect errors on trying to attach a folder as an attachment
+     */
+    public function testAddFolderAsAttachment()
+    {
+        $mail = new PHPMailer();
+        self::assertFalse($mail->addAttachment(__DIR__, 'test.txt'));
+
+        $this->expectException(Exception::class);
+        $mail = new PHPMailer(true);
+        $mail->addAttachment(__DIR__, 'test.txt');
+    }
+
 
     /**
      * Expect exceptions on sending after deleting a previously successfully attached file
@@ -898,26 +940,21 @@ EOT;
             'commonName' => 'PHPMailer Test',
             'emailAddress' => 'phpmailer@example.com',
         ];
-        $keyconfig = [
-            'digest_alg' => 'sha256',
-            'private_key_bits' => 2048,
-            'private_key_type' => OPENSSL_KEYTYPE_RSA,
-        ];
         $password = 'password';
         $certfile = 'certfile.pem';
         $keyfile = 'keyfile.pem';
 
         //Make a new key pair
-        $pk = openssl_pkey_new($keyconfig);
+        $pk = $this->makeKey();
         //Create a certificate signing request
-        $csr = openssl_csr_new($dn, $pk);
+        $csr = $this->makeCsr($dn, $pk);
         //Create a self-signed cert
-        $cert = openssl_csr_sign($csr, null, $pk, 1);
+        $cert = $this->signCsr($csr, null, $pk, 1);
         //Save the cert
         openssl_x509_export($cert, $certout);
         file_put_contents($certfile, $certout);
         //Save the key
-        openssl_pkey_export($pk, $pkeyout, $password);
+        $this->exportKey($pk, $pkeyout, $password);
         file_put_contents($keyfile, $pkeyout);
 
         $this->Mail->sign(
@@ -929,6 +966,11 @@ EOT;
 
         $msg = $this->Mail->getSentMIMEMessage();
         self::assertStringNotContainsString("\r\n\r\nMIME-Version:", $msg, 'Incorrect MIME headers');
+        self::assertSame(
+            0,
+            preg_match_all("/(?<!\r)\n/", $msg),
+            'Signed message contains bare line feeds'
+        );
         unlink($certfile);
         unlink($keyfile);
     }
@@ -965,11 +1007,6 @@ EOT;
             'commonName' => 'PHPMailer Test CA',
             'emailAddress' => 'phpmailer@example.com',
         ];
-        $keyconfig = [
-            'digest_alg' => 'sha256',
-            'private_key_bits' => 2048,
-            'private_key_type' => OPENSSL_KEYTYPE_RSA,
-        ];
         $password = 'password';
         $cacertfile = 'cacertfile.pem';
         $cakeyfile = 'cakeyfile.pem';
@@ -978,31 +1015,31 @@ EOT;
 
         //Create a CA cert
         //Make a new key pair
-        $capk = openssl_pkey_new($keyconfig);
+        $capk = $this->makeKey();
         //Create a certificate signing request
-        $csr = openssl_csr_new($cacertprops, $capk);
+        $csr = $this->makeCsr($cacertprops, $capk);
         //Create a self-signed cert
-        $cert = openssl_csr_sign($csr, null, $capk, 1);
+        $cert = $this->signCsr($csr, null, $capk, 1);
         //Save the CA cert
         openssl_x509_export($cert, $certout);
         file_put_contents($cacertfile, $certout);
         //Save the CA key
-        openssl_pkey_export($capk, $pkeyout, $password);
+        $this->exportKey($capk, $pkeyout, $password);
         file_put_contents($cakeyfile, $pkeyout);
 
         //Create a cert signed by our CA
         //Make a new key pair
-        $pk = openssl_pkey_new($keyconfig);
+        $pk = $this->makeKey();
         //Create a certificate signing request
-        $csr = openssl_csr_new($certprops, $pk);
+        $csr = $this->makeCsr($certprops, $pk);
         //Create a self-signed cert
         $cacert = file_get_contents($cacertfile);
-        $cert = openssl_csr_sign($csr, $cacert, $capk, 1);
+        $cert = $this->signCsr($csr, $cacert, $capk, 1);
         //Save the cert
         openssl_x509_export($cert, $certout);
         file_put_contents($certfile, $certout);
         //Save the key
-        openssl_pkey_export($pk, $pkeyout, $password);
+        $this->exportKey($pk, $pkeyout, $password);
         file_put_contents($keyfile, $pkeyout);
 
         $this->Mail->sign(
@@ -1070,6 +1107,37 @@ EOT;
     }
 
     /**
+     * Closing a connection in the middle of DATA must not send QUIT, as the server would take it as message content.
+     */
+    public function testQuitDuringData()
+    {
+        self::assertTrue($this->Mail->smtpConnect(), 'SMTP connect failed');
+        $smtp = $this->Mail->getSMTPInstance();
+        //Don't wait long for a reply that should never be requested
+        $smtp->Timelimit = 5;
+        self::assertTrue($smtp->mail('phpunit@example.com'));
+        self::assertTrue($smtp->recipient('somebody@example.com'));
+
+        //Start DATA without sending the message, as if the send had been interrupted
+        $reflMethod = new \ReflectionMethod($smtp, 'sendCommand');
+        (\PHP_VERSION_ID < 80100) && $reflMethod->setAccessible(true);
+        self::assertTrue($reflMethod->invoke($smtp, 'DATA', 'DATA', 354));
+        (\PHP_VERSION_ID < 80100) && $reflMethod->setAccessible(false);
+
+        $sent = '';
+        $smtp->setDebugLevel(SMTP::DEBUG_CLIENT);
+        $smtp->setDebugOutput(
+            static function ($str) use (&$sent) {
+                $sent .= $str;
+            }
+        );
+        $smtp->quit();
+
+        self::assertStringNotContainsString('QUIT', $sent, 'QUIT was sent during DATA');
+        self::assertFalse($smtp->connected(), 'Connection was not closed');
+    }
+
+    /**
      * Tests setting and retrieving ConfirmReadingTo address, also known as "read receipt" address.
      */
     public function testConfirmReadingTo()
@@ -1108,12 +1176,13 @@ EOT;
     public function testConvertEncoding()
     {
         if (!PHPMailer::idnSupported()) {
-            self::markTestSkipped('intl and/or mbstring extensions are not available');
+            self::markTestSkipped('Both intl and mbstring extensions are required.');
         }
 
         $this->Mail->clearAllRecipients();
 
-        //This file is UTF-8 encoded. Create a domain encoded in "iso-8859-1".
+        //This file is UTF-8 encoded so we have to take a roundabout route
+        //to make a domain using an ISO-8859-1 character.
         $letter = html_entity_decode('&ccedil;', ENT_COMPAT, PHPMailer::CHARSET_ISO88591);
         $domain = '@' . 'fran' . $letter . 'ois.ch';
         $this->Mail->addAddress('test' . $domain);
@@ -1152,7 +1221,7 @@ EOT;
     public function testDuplicateIDNRemoved()
     {
         if (!PHPMailer::idnSupported()) {
-            self::markTestSkipped('intl and/or mbstring extensions are not available');
+            self::markTestSkipped('Both intl and mbstring extensions are required.');
         }
 
         $this->Mail->clearAllRecipients();
@@ -1177,6 +1246,141 @@ EOT;
             'Bad count of "to" recipients'
         );
     }
+
+    /**
+     * Test that validation doesn't accidentally succeed.
+     */
+    public function testUnsupportedSmtpUTF8()
+    {
+        self::assertFalse(PHPMailer::validateAddress('spın̈altap@example.com', 'html5'));
+        self::assertTrue(PHPMailer::validateAddress('spın̈altap@example.com', 'eai'));
+    }
+
+    /**
+     * The eai regex is complex and warrants a few extra tests.
+     */
+    public function testStrangeUnicodeEmailAddresses()
+    {
+        PHPMailer::$validator = 'eai';
+        self::assertTrue(PHPMailer::validateAddress('spın̈altap@example.com'));
+        self::assertTrue(PHPMailer::validateAddress('spın̈altap@spın̈altap.com'));
+        self::assertTrue(PHPMailer::validateAddress('दूकान@मेरी.दूकान.भारत'));
+        self::assertTrue(PHPMailer::validateAddress('慕田峪长城@慕田峪长城.网址'));
+        self::assertFalse(PHPMailer::validateAddress('慕田峪长城@慕田峪长城。网址'));
+    }
+
+    /**
+     * Test that SMTPUTF8 is allowed unless the caller has made a conscious choice against it.
+     */
+    public function testAutomaticEaiValidation()
+    {
+        $this->Mail = new PHPMailer(true);
+        PHPMailer::$validator = 'php';
+        $this->Mail->Body = 'Test';
+        $this->Mail->isSMTP();
+        self::assertTrue($this->Mail->addAddress('spın̈altap@example.com', ''));
+        $this->Mail->preSend();
+        self::assertTrue($this->Mail->needsSMTPUTF8());
+    }
+
+    /**
+     * Test SMTPUTF8 usage, including when it is not to be used.
+     */
+    public function testSmtpUTF8()
+    {
+        PHPMailer::$validator = 'php';
+        $this->Mail = new PHPMailer(true);
+        $this->Mail->Body = 'Test';
+        $this->Mail->isSMTP();
+        $this->Mail->addAddress('foo@example.com', '');
+        $this->Mail->preSend();
+        self::assertFalse($this->Mail->needsSMTPUTF8());
+
+        //Beyond this point we need UTF-8 support
+        if (!PHPMailer::idnSupported()) {
+            self::markTestSkipped('Both intl and mbstring extensions are required.');
+        }
+
+        //Using a punycodable domain does not need SMTPUTF8
+        self::assertFalse($this->Mail->needsSMTPUTF8());
+        $this->Mail->addAddress('foo@spın̈altap.example', '');
+        $this->Mail->preSend();
+        self::assertFalse($this->Mail->needsSMTPUTF8());
+
+        //Need to use SMTPUTF8, and can.
+        self::assertTrue($this->Mail->addAddress('spın̈altap@example.com', ''));
+        $this->Mail->preSend();
+        self::assertTrue($this->Mail->needsSMTPUTF8());
+
+        //If using SMTPUTF8, then the To header should contain
+        //Unicode@Unicode, for better rendering by clients like Mac
+        //Outlook.
+        $this->Mail->addAddress('spın̈altap@spın̈altap.invalid', '');
+        $this->Mail->preSend();
+        self::assertStringContainsString('spın̈altap@spın̈altap.invalid', $this->Mail->createHeader());
+
+        //Sending unencoded UTF8 is legal when SMTPUTF8 is used,
+        //except that body parts have to be encoded if they
+        //accidentally contain any lines that match the MIME boundary
+        //lines. It also looks good, so let's do it.
+
+        $this->Mail->Subject = 'Spın̈al Tap';
+        self::assertStringContainsString('Spın̈al', $this->Mail->createHeader());
+        $this->Mail->Body = 'Spın̈al Tap';
+        $this->Mail->preSend();
+        self::assertStringContainsString('Spın̈al', $this->Mail->createBody());
+    }
+
+    /**
+     * Test SMTP Xclient options
+     */
+    public function testSmtpXclient()
+    {
+        $this->Mail->isSMTP();
+        $this->Mail->SMTPAuth = false;
+        $this->Mail->setSMTPXclientAttribute('ADDR', '127.0.0.1');
+        $this->Mail->setSMTPXclientAttribute('LOGIN', 'user@example.com');
+        $this->Mail->setSMTPXclientAttribute('HELO', 'test.example.com');
+        $this->assertFalse($this->Mail->setSMTPXclientAttribute('INVALID', 'value'));
+
+        $attributes = $this->Mail->getSMTPXclientAttributes();
+        $this->assertEquals('test.example.com', $attributes['HELO']);
+
+        // remove attribute
+        $this->Mail->setSMTPXclientAttribute('HELO', null);
+        $attributes = $this->Mail->getSMTPXclientAttributes();
+        $this->assertEquals(['ADDR' => '127.0.0.1', 'LOGIN' => 'user@example.com'], $attributes);
+
+        $this->Mail->Subject .= ': Testing XCLIENT';
+        $this->buildBody();
+        $this->Mail->clearAllRecipients();
+        self::assertTrue($this->Mail->addAddress('a@example.com'), 'Addressing failed');
+
+        //Skip if the test server does not support the XCLIENT extension
+        self::assertTrue($this->Mail->smtpConnect(), 'SMTP connect failed');
+        if (!$this->Mail->getSMTPInstance()->getServerExt('XCLIENT')) {
+            $this->Mail->smtpClose();
+            self::markTestSkipped('XCLIENT not supported by the SMTP test server');
+        }
+        /*
+         * Skip if the server's XCLIENT implementation is not spec-conformant:
+         * per the Postfix XCLIENT spec the server must respond with 220 and
+         * reset to the greeting stage, so a probe must succeed. Some test
+         * servers acknowledge all commands with 250, which a
+         * spec-conformant client must reject.
+         */
+        if (!$this->Mail->getSMTPInstance()->xclient(['ADDR' => '127.0.0.1'])) {
+            $this->Mail->smtpClose();
+            self::markTestSkipped(
+                'XCLIENT not supported by the SMTP test server: ' .
+                $this->Mail->getSMTPInstance()->getError()['error']
+            );
+        }
+
+        $this->Mail->preSend();
+        self::assertTrue($this->Mail->send(), 'send failed');
+    }
+
 
     /**
      * Test SMTP host connections.
@@ -1208,21 +1412,25 @@ EOT;
         $this->Mail->smtpClose();
 
         //Need to pick a harmless option so as not cause problems of its own! socket:bind doesn't work with Travis-CI
+        //Preserve any configured SMTPOptions (e.g. test servers using self-signed certificates).
         $this->Mail->Host = $_REQUEST['mail_host'];
-        self::assertTrue($this->Mail->smtpConnect(['ssl' => ['verify_depth' => 10]]));
+        $options = ['ssl' => ['verify_depth' => 10]];
+        if (isset($_REQUEST['mail_options']['ssl']) && is_array($_REQUEST['mail_options']['ssl'])) {
+            $options['ssl'] += $_REQUEST['mail_options']['ssl'];
+        }
+        self::assertTrue($this->Mail->smtpConnect($options));
 
         $this->Smtp = $this->Mail->getSMTPInstance();
         self::assertInstanceOf(\get_class($this->Smtp), $this->Mail->setSMTPInstance($this->Smtp));
         $this->Mail->smtpClose();
     }
 
+    /**
+     * @requires extension mbstring
+     * @requires function idn_to_ascii
+     */
     public function testGivenIdnAddress_addAddress_returns_true()
     {
-        if (file_exists(\PHPMAILER_INCLUDE_DIR . '/test/fakefunctions.php') === false) {
-            $this->markTestSkipped('/test/fakefunctions.php file not found');
-        }
-
-        include \PHPMAILER_INCLUDE_DIR . '/test/fakefunctions.php';
         $this->assertTrue($this->Mail->addAddress('test@françois.ch'));
     }
 

@@ -8,7 +8,7 @@
  * @author    Andy Prevost
  * @copyright 2012 - 2020 Marcus Bointon
  * @copyright 2004 - 2009 Andy Prevost
- * @license   http://www.gnu.org/copyleft/lesser.html GNU Lesser General Public License
+ * @license   https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html GNU Lesser General Public License
  */
 
 namespace PHPMailer\Test\PHPMailer;
@@ -29,7 +29,7 @@ final class WrapTextTest extends TestCase
      * @dataProvider dataWrapText
      *
      * @param string $message  Input text string.
-     * @param string $expected Expected funtion output.
+     * @param string $expected Expected function output.
      * @param bool   $qp_mode  Optional. Whether to run in Quoted-Printable mode. Defaults to `false`.
      * @param int    $length   Optional. Length to wrap at. Defaults to `50`.
      */
@@ -43,7 +43,7 @@ final class WrapTextTest extends TestCase
      *
      * @return array
      */
-    public function dataWrapText()
+    public static function dataWrapText()
     {
         return [
             'empty string' => [

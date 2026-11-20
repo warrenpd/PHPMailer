@@ -8,7 +8,7 @@
  * @author    Andy Prevost
  * @copyright 2012 - 2020 Marcus Bointon
  * @copyright 2004 - 2009 Andy Prevost
- * @license   http://www.gnu.org/copyleft/lesser.html GNU Lesser General Public License
+ * @license   https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html GNU Lesser General Public License
  */
 
 namespace PHPMailer\Test\PHPMailer;
@@ -43,6 +43,46 @@ final class HasLineLongerThanMaxTest extends PreSendTestCase
         $this->buildBody();
         $this->Mail->AltBody = $this->Mail->Body;
         $this->Mail->Encoding = '8bit';
+        $this->Mail->preSend();
+        $message = $this->Mail->getSentMIMEMessage();
+        self::assertFalse(
+            PHPMailer::hasLineLongerThanMax($message),
+            'Long line not corrected (Max: ' . (PHPMailer::MAX_LINE_LENGTH + strlen(PHPMailer::getLE())) . ' chars)'
+        );
+        self::assertStringContainsString(
+            'Content-Transfer-Encoding: quoted-printable',
+            $message,
+            'Long line did not cause transfer encoding switch.'
+        );
+    }
+
+    /**
+     * Test constructing a SMIME signed message that contains lines that are too long for RFC compliance.
+     *
+     * @covers \PHPMailer\PHPMailer\PHPMailer::hasLineLongerThanMax
+     */
+    public function testLongBodySmime()
+    {
+        $oklen = str_repeat(str_repeat('0', PHPMailer::MAX_LINE_LENGTH) . PHPMailer::getLE(), 2);
+        // Use +2 to ensure line length is over limit - LE may only be 1 char.
+        $badlen = str_repeat(str_repeat('1', PHPMailer::MAX_LINE_LENGTH + 2) . PHPMailer::getLE(), 2);
+
+        $this->Mail->Body = 'This message contains lines that are too long.' .
+            PHPMailer::getLE() . $oklen . $badlen . $oklen;
+        self::assertTrue(
+            PHPMailer::hasLineLongerThanMax($this->Mail->Body),
+            'Test content does not contain long lines!'
+        );
+
+        $this->Mail->isHTML();
+        $this->buildBody();
+        #$this->Mail->AltBody = $this->Mail->Body;
+        $this->Mail->Encoding = '8bit';
+        $this->Mail->sign(
+            __DIR__ . '/../Fixtures/HasLineLongerThanMaxTest/cert.pem',
+            __DIR__ . '/../Fixtures/HasLineLongerThanMaxTest/key.pem',
+            null
+        );
         $this->Mail->preSend();
         $message = $this->Mail->getSentMIMEMessage();
         self::assertFalse(

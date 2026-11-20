@@ -8,7 +8,7 @@
  * @author    Andy Prevost
  * @copyright 2012 - 2020 Marcus Bointon
  * @copyright 2004 - 2009 Andy Prevost
- * @license   http://www.gnu.org/copyleft/lesser.html GNU Lesser General Public License
+ * @license   https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html GNU Lesser General Public License
  */
 
 namespace PHPMailer\Test\PHPMailer;
@@ -25,7 +25,7 @@ use PHPMailer\Test\TestCase;
 final class SetErrorTest extends TestCase
 {
     /**
-     * Test simple, non-STMP, error registration.
+     * Test simple, non-SMTP, error registration.
      */
     public function testSetErrorNonSmtp()
     {
@@ -43,7 +43,7 @@ final class SetErrorTest extends TestCase
     }
 
     /**
-     * Test simple, non-STMP, error registration, where only one of the two SMTP conditions is met.
+     * Test simple, non-SMTP, error registration, where only one of the two SMTP conditions is met.
      */
     public function testSetErrorNonSmtpWithMailerSmtp()
     {
@@ -53,7 +53,7 @@ final class SetErrorTest extends TestCase
     }
 
     /**
-     * Test simple, non-STMP, error registration, where the other one of the two SMTP conditions is met.
+     * Test simple, non-SMTP, error registration, where the other one of the two SMTP conditions is met.
      */
     public function testSetErrorNonSmtpWithSmtpInstanceSet()
     {
@@ -92,7 +92,7 @@ final class SetErrorTest extends TestCase
      *
      * @return array
      */
-    public function dataSetErrorSmtp()
+    public static function dataSetErrorSmtp()
     {
         return [
             'No SMTP error' => [
@@ -111,7 +111,7 @@ final class SetErrorTest extends TestCase
                     'smtp_code'    => '',
                     'smtp_code_ex' => '',
                 ],
-                'expected' => 'Cannot set or reset variable: nonexistentpropertySMTP server error: Fake error',
+                'expected' => 'Cannot set or reset variable: nonexistentproperty SMTP server error: Fake error',
             ],
             'SMTP error, full details' => [
                 'mockReturn' => [
@@ -120,7 +120,7 @@ final class SetErrorTest extends TestCase
                     'smtp_code'    => 'Fake code',
                     'smtp_code_ex' => 'Fake code ex',
                 ],
-                'expected' => 'Cannot set or reset variable: nonexistentpropertySMTP server error: '
+                'expected' => 'Cannot set or reset variable: nonexistentproperty SMTP server error: '
                     . 'Fake error Detail: Fake detail SMTP code: Fake code Additional SMTP info: Fake code ex',
             ],
         ];

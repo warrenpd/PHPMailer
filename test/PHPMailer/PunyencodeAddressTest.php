@@ -8,7 +8,7 @@
  * @author    Andy Prevost
  * @copyright 2012 - 2020 Marcus Bointon
  * @copyright 2004 - 2009 Andy Prevost
- * @license   http://www.gnu.org/copyleft/lesser.html GNU Lesser General Public License
+ * @license   https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html GNU Lesser General Public License
  */
 
 namespace PHPMailer\Test\PHPMailer;
@@ -33,7 +33,7 @@ final class PunyencodeAddressTest extends TestCase
      *
      * @param string $input    Input text string.
      * @param string $charset  The character set.
-     * @param string $expected Expected funtion output.
+     * @param string $expected Expected function output.
      */
     public function testPunyencodeAddressConversion($input, $charset, $expected)
     {
@@ -51,7 +51,7 @@ final class PunyencodeAddressTest extends TestCase
      *
      * @return array
      */
-    public function dataPunyencodeAddressConversion()
+    public static function dataPunyencodeAddressConversion()
     {
         return [
             // This source file is in UTF-8, so characters here are in native charset.
@@ -87,7 +87,7 @@ final class PunyencodeAddressTest extends TestCase
      *
      * @param string $input    Input text string.
      * @param string $charset  The character set.
-     * @param string $expected Expected funtion output.
+     * @param string $expected Expected function output.
      */
     public function testPunyencodeAddressNoConversion($input, $charset, $expected)
     {
@@ -108,7 +108,7 @@ final class PunyencodeAddressTest extends TestCase
      *
      * @return array
      */
-    public function dataPunyencodeAddressNoConversion()
+    public static function dataPunyencodeAddressNoConversion()
     {
         return [
             'ASCII' => [

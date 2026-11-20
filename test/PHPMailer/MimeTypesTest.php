@@ -8,7 +8,7 @@
  * @author    Andy Prevost
  * @copyright 2012 - 2020 Marcus Bointon
  * @copyright 2004 - 2009 Andy Prevost
- * @license   http://www.gnu.org/copyleft/lesser.html GNU Lesser General Public License
+ * @license   https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html GNU Lesser General Public License
  */
 
 namespace PHPMailer\Test\PHPMailer;
@@ -29,7 +29,7 @@ final class MimeTypesTest extends TestCase
      * @dataProvider dataMime_Types
      *
      * @param string $input     Input text string.
-     * @param string $expected  Expected funtion output.
+     * @param string $expected  Expected function output.
      */
     public function testMime_Types($input, $expected)
     {
@@ -42,7 +42,7 @@ final class MimeTypesTest extends TestCase
      *
      * @return array
      */
-    public function dataMime_Types()
+    public static function dataMime_Types()
     {
         return [
             'Extension: pdf (lowercase)' => [

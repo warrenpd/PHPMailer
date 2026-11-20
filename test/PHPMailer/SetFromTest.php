@@ -8,7 +8,7 @@
  * @author    Andy Prevost
  * @copyright 2012 - 2020 Marcus Bointon
  * @copyright 2004 - 2009 Andy Prevost
- * @license   http://www.gnu.org/copyleft/lesser.html GNU Lesser General Public License
+ * @license   https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html GNU Lesser General Public License
  */
 
 namespace PHPMailer\Test\PHPMailer;
@@ -25,11 +25,11 @@ use PHPMailer\Test\TestCase;
 final class SetFromTest extends TestCase
 {
     /**
-     * Test succesfully setting the From, FromName and Sender properties.
+     * Test successfully setting the From, FromName and Sender properties.
      *
      * @dataProvider dataSetFromSuccess
      *
-     * @param string $expected Expected funtion output.
+     * @param string $expected Expected function output.
      * @param string $address  Email address input to pass to the function.
      * @param string $name     Optional. Name input to pass to the function.
      */
@@ -48,7 +48,7 @@ final class SetFromTest extends TestCase
      *
      * @return array
      */
-    public function dataSetFromSuccess()
+    public static function dataSetFromSuccess()
     {
         return [
             'Email, no name' => [
@@ -126,7 +126,7 @@ final class SetFromTest extends TestCase
     }
 
     /**
-     * Test unsuccesfully setting the From, FromName and Sender properties.
+     * Test unsuccessfully setting the From, FromName and Sender properties.
      *
      * @dataProvider dataSetFromFail
      *
@@ -170,7 +170,7 @@ final class SetFromTest extends TestCase
      *
      * @return array
      */
-    public function dataSetFromFail()
+    public static function dataSetFromFail()
     {
         return [
             'Invalid email address' => [
@@ -187,14 +187,14 @@ final class SetFromTest extends TestCase
     }
 
     /**
-     * Test unsuccesfully setting the From, FromName and Sender properties when an email address
+     * Test unsuccessfully setting the From, FromName and Sender properties when an email address
      * containing an 8bit character is passed and either the MbString or the Intl extension are
      * not available.
      */
     public function testSetFromFailsOn8BitCharInDomainWithoutOptionalExtensions()
     {
         if (extension_loaded('mbstring') && function_exists('idn_to_ascii')) {
-            $this->markTestSkipped('Test requires MbString and/or Intl *not* to be available');
+            self::markTestSkipped('Test requires MbString and/or Intl *not* to be available');
         }
 
         $this->testSetFromFail("8bit@ex\x80mple.com");
